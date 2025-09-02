@@ -2,8 +2,13 @@
 import axios, { isAxiosError } from 'axios';
 import { getToken, saveToken, clearToken } from './auth';
 
+// Base URL dinámica para funcionar en cualquier IP/host.
+// Prioriza variables Vite y, si no existen, usa el hostname actual a puerto 8000.
+const API_BASE = (import.meta as any).env?.VITE_API_BASE?.trim()
+  || `${window.location.protocol}//${window.location.hostname}:${(import.meta as any).env?.VITE_API_PORT || '8000'}`;
+
 const API = axios.create({
-  baseURL: 'http://100.120.139.122:8000',
+  baseURL: API_BASE,
   timeout: 15000,
 });
 
