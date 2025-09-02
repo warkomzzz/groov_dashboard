@@ -99,6 +99,8 @@ export default function App() {
 
   useEffect(() => {
     if (!authed || sensors.length === 0) return;
+    // Solo admins ven/usan tiempo real
+    if (role !== 'admin') return;
 
     let alive = true;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -190,12 +192,14 @@ export default function App() {
       if (timer) clearTimeout(timer);
       if (pollAbortRef.current) pollAbortRef.current.abort();
     };
-  }, [authed, sensors, sel]);
+  }, [authed, role, sensors, sel]);
 
   // Series históricas (para gráficos)
   useEffect(() => {
     let cancelled = false;
     if (!authed) return;
+    // Solo admins consultan series para gráficos/tabla
+    if (role !== 'admin') return;
     if (sel.length === 0) {
       setSeries({});
       return;
@@ -227,7 +231,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [authed, sel, start, end]);
+  }, [authed, role, sel, start, end]);
 
   // Listas usando realtime si existe; si no, heurística
   const analogList = useMemo(
@@ -269,6 +273,121 @@ export default function App() {
     );
   }
 
+  // Vista restringida para rol "user": solo selección + descargas
+  if (role === 'user') {
+    return (
+      <div className="min-h-screen bg-slate-100">
+        {bootErr && (
+          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 text-sm">{bootErr}</div>
+        )}
+
+        <div className="max-w-7xl mx-auto p-4 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <h1 className="text-2xl font-bold">Descargas — Groov EPIC</h1>
+            <button
+              onClick={() => {
+                clearToken();
+                setAuthed(false);
+                setRole(null);
+                setSel([]);
+                setSeries({});
+                setRealtime({});
+                setBootErr(null);
+              }}
+              className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1 rounded"
+              title="Cerrar sesión"
+            >
+              Cerrar sesión
+            </button>
+          </div>
+
+          <Toolbar
+            start={start}
+            end={end}
+            onDateChange={(k, v) => (k === 'start' ? setStart(v) : setEnd(v))}
+            onExcel={() =>
+              exportExcel(
+                sel,
+                start ? new Date(start).toISOString() : undefined,
+                end ? new Date(end).toISOString() : undefined
+              )
+            }
+            onPDF={() =>
+              exportPDF(
+                sel,
+                start ? new Date(start).toISOString() : undefined,
+                end ? new Date(end).toISOString() : undefined
+              )
+            }
+          />
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-slate-700">Buscar</span>
+              <input
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                placeholder="Nombre del sensor…"
+                className="border rounded px-2 py-1"
+                style={{ minWidth: 260 }}
+              />
+            </div>
+
+            <label className="text-sm flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selectedFirst}
+                onChange={(e) => setSelectedFirst(e.target.checked)}
+              />
+              Seleccionados primero
+            </label>
+
+            <label className="text-sm flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={groupByPrefix}
+                onChange={(e) => setGroupByPrefix(e.target.checked)}
+              />
+              Agrupar por prefijo
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="font-semibold">Sensores Analógicos</h2>
+            <SensorSelect
+              sensors={analogList}
+              selected={sel}
+              onToggle={(n) =>
+                setSel((curr) => (curr.includes(n) ? curr.filter((x) => x !== n) : [...curr, n]))
+              }
+              realtime={{}}
+              filterText={filterText}
+              selectedFirst={selectedFirst}
+              groupByPrefix={groupByPrefix}
+              columns={3}
+              showRealtime={false}
+            />
+
+            <h2 className="font-semibold mt-4">Sensores Digitales</h2>
+            <SensorSelect
+              sensors={digitalList}
+              selected={sel}
+              onToggle={(n) =>
+                setSel((curr) => (curr.includes(n) ? curr.filter((x) => x !== n) : [...curr, n]))
+              }
+              realtime={{}}
+              filterText={filterText}
+              selectedFirst={selectedFirst}
+              groupByPrefix={groupByPrefix}
+              columns={3}
+              showRealtime={false}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       {bootErr && (
@@ -276,7 +395,24 @@ export default function App() {
       )}
 
       <div className="max-w-7xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-bold">Dashboard — Groov EPIC</h1>
+        <div className="flex items-center justify-between gap-4">
+          <h1 className="text-2xl font-bold">Dashboard — Groov EPIC</h1>
+          <button
+            onClick={() => {
+              clearToken();
+              setAuthed(false);
+              setRole(null);
+              setSel([]);
+              setSeries({});
+              setRealtime({});
+              setBootErr(null);
+            }}
+            className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1 rounded"
+            title="Cerrar sesión"
+          >
+            Cerrar sesión
+          </button>
+        </div>
 
         <Toolbar
           start={start}
