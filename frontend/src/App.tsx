@@ -246,15 +246,7 @@ export default function App() {
     [sensors, realtime]
   );
 
-  // (Opcional) autoseleccionar 2 analógicos si no hay selección
-  useEffect(() => {
-    if (!authed) return;
-    // Solo realizarlo una vez en el arranque de sesión
-    if (!didAutoSelectRef.current && sel.length === 0 && analogList.length > 0) {
-      setSel(analogList.slice(0, 2));
-      didAutoSelectRef.current = true;
-    }
-  }, [authed, analogList, sel.length]);
+  // No autoseleccionar sensores al iniciar
 
   // Al cerrar sesión, permitir que se vuelva a autoseleccionar en el próximo login
   useEffect(() => {
@@ -450,7 +442,13 @@ export default function App() {
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-slate-700">Buscar</span>
+            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/10 text-white/90 text-xs font-semibold tracking-wide">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/>
+                <path d="M21 21l-3.5-3.5"/>
+              </svg>
+              Buscar
+            </span>
             <input
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
