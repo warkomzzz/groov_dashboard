@@ -11,10 +11,13 @@ from dateutil import parser as dateparser
 import pandas as pd
 
 from export_utils import build_dataframe, to_excel_bytes, make_pdf_with_charts
+from dotenv import load_dotenv
 
 # ==========================
 # Configuración / Mongo
 # ==========================
+# Cargar variables de entorno desde .env si existe
+load_dotenv()
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://127.0.0.1:27017")
 DB_NAME   = os.getenv("DB_NAME", "groov")
 COLL_NAME = os.getenv("COLL_NAME", "measurements")
@@ -47,7 +50,7 @@ app.add_middleware(
 # ==========================
 # Seguridad (hash + JWT)
 # ==========================
-JWT_SECRET  = "ingelsa$2025$groov#dashboard#secret#b7e1c5a9a51f4e32a56b97b1a98f37f0"
+JWT_SECRET  = os.getenv("JWT_SECRET", "ingelsa$2025$groov#dashboard#secret#b7e1c5a9a51f4e32a56b97b1a98f37f0")
 JWT_ISS     = "groov-dashboard"
 JWT_EXP_MIN = 8 * 60
 
@@ -120,6 +123,9 @@ def verify_jwt(token: str) -> dict:
 # ==========================
 def ensure_default_users():
     users.create_index([("username", ASCENDING)], unique=True, background=True)
+    # Permite desactivar la creación de usuarios por defecto en producción
+    if os.getenv("INIT_DEFAULT_USERS", "true").lower() not in ("1", "true", "yes", "y"):  # pragma: no cover
+        return
     if not users.find_one({"username": "admin"}):
         users.insert_one({"username": "admin", "role": "admin", "password": make_password("admin")})
     if not users.find_one({"username": "produccion"}):
@@ -234,21 +240,43 @@ def measurements(
     limit: int = 20, _user=ReadRole,
 ):
     q = {"name": name}
-    if endpoint: q["endpoint"] = endpoint
-    if device_ip: q["device_ip"] = device_ip
-    if start or end:
-        q["ts"] = {}
-        if start: q["ts"]["$gte"] = parse_dt(start)
-        if end:   q["ts"]["$lte"] = parse_dt(end)
+    if endpoint:
+        q["endpoint"] = endpoint
+    if device_ip:
+        q["device_ip"] = device_ip
+    # Aplicar filtro de tiempo solo si las fechas son válidas
+    tf = time_filter(start, end)
+    q.update(tf)
     cur  = coll.find(q, {"_id": 0}).sort("ts", -1).limit(limit)
     docs = list(cur); docs.reverse()
     return docs
+
+# ==========================
+# Endpoint temporal para verificar usuario
+# ==========================
+from fastapi import Body
+
+@app.post("/check-user")
+def check_user(data: dict = Body(...)):
+    username = (data.get("username") or "").strip()
+    password = data.get("password") or ""
+    u = users.find_one({"username": username})
+    if not u:
+        return {"exists": False, "password_ok": False}
+    try:
+        alg, it, salt_hex, dk_hex = u["password"].split("$", 3)
+        dk2 = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), int(it))
+        ok = hmac.compare_digest(dk2.hex(), dk_hex)
+    except Exception:
+        ok = False
+    return {"exists": True, "password_ok": ok}
+
 
 @app.get("/export/excel")
 def export_excel(
     names: Optional[List[str]] = Query(default=None, description="Lista de sensores"),
     start: Optional[str] = None, end: Optional[str] = None,
-    _user=AdminRole,
+    _user=ReadRole,
 ):
     if not names:
         recent = list(coll.aggregate([{"$sort": {"ts": -1}}, {"$group": {"_id": "$name"}}, {"$limit": 10}]))
@@ -274,7 +302,7 @@ def export_excel(
 def export_pdf(
     names: Optional[List[str]] = Query(default=None, description="Lista de sensores"),
     start: Optional[str] = None, end: Optional[str] = None,
-    _user=AdminRole,
+    _user=ReadRole,
 ):
     if not names:
         recent = list(coll.aggregate([{"$sort": {"ts": -1}}, {"$group": {"_id": "$name"}}, {"$limit": 10}]))
@@ -301,7 +329,7 @@ def realtime(
     endpoint: Optional[str] = None,
     device_ip: Optional[str] = None,
     body: dict = Body(default=None),
-    _user=ReadRole,
+    _user=AdminRole,
 ) -> Dict[str, dict]:
     # Si viene POST con JSON, lo priorizamos
     if body:

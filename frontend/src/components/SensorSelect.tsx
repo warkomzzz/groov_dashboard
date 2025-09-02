@@ -11,6 +11,7 @@ type Props = {
   selectedFirst: boolean
   groupByPrefix: boolean
   columns?: number
+  showRealtime?: boolean
 }
 
 function isOn(v: any): boolean {
@@ -33,7 +34,7 @@ function prefixOf(name: string): string {
 
 export default function SensorSelect({
   sensors, selected, onToggle, realtime,
-  filterText, selectedFirst, groupByPrefix, columns = 4
+  filterText, selectedFirst, groupByPrefix, columns = 4, showRealtime = true
 }: Props) {
   const filter = filterText.trim().toLowerCase()
 
@@ -59,8 +60,10 @@ export default function SensorSelect({
     }
   }
 
-  const gridClass = `grid gap-2 max-h-80 overflow-auto p-2 border rounded bg-white`
-  const colClass  = `grid grid-cols-[auto,1fr,auto] items-center gap-2 px-2 py-1 rounded hover:bg-slate-50`
+  const gridClass = `grid gap-2 max-h-80 overflow-auto p-2 glass-card`
+  const colClass  = showRealtime
+    ? `grid grid-cols-[auto,1fr,auto] items-center gap-2 px-2 py-1 rounded hover:bg-white/10 text-white`
+    : `grid grid-cols-[auto,1fr] items-center gap-2 px-2 py-1 rounded hover:bg-white/10 text-white`
 
   // estilos comunes para el “badge” grande
   const badgeBase =
@@ -70,7 +73,7 @@ export default function SensorSelect({
   function Row({ name }: { name: string }) {
     const r = realtime[name]
     const isDigital = r?.type === 'digital'
-    const when = r?.ts ? new Date(r.ts).toLocaleTimeString() : ''
+    const when = showRealtime && r?.ts ? new Date(r.ts).toLocaleTimeString() : ''
 
     return (
       <label
@@ -88,7 +91,7 @@ export default function SensorSelect({
           {when && <span className="text-xs text-slate-500">({when})</span>}
         </span>
 
-        {r ? (
+        {showRealtime && r ? (
           isDigital ? (
             <span
               className={
@@ -105,16 +108,16 @@ export default function SensorSelect({
             <span
               className={
                 badgeBase +
-                ' bg-blue-100 text-blue-800 ring-blue-300'
+                ' bg-white/10 text-white ring-white/30'
               }
             >
               {fmtVal(r.value)}
             </span>
           )
-        ) : (
+        ) : showRealtime ? (
           // Aún sin realtime: muestra un placeholder, no ocultes el sensor
-          <span className="text-sm text-slate-400">…</span>
-        )}
+          <span className="text-sm text-white/60">…</span>
+        ) : null}
       </label>
     )
   }
@@ -130,7 +133,7 @@ export default function SensorSelect({
         >
           {groups.map(g => (
             <div key={g} className="flex flex-col">
-              <div className="text-xs font-semibold text-slate-600 sticky top-0 bg-white/90 backdrop-blur px-1 py-1 rounded">
+              <div className="text-xs font-semibold text-white/80 sticky top-0 bg-white/10 backdrop-blur px-1 py-1 rounded">
                 {g}
               </div>
               <div className="mt-1 space-y-1">

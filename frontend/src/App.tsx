@@ -16,6 +16,7 @@ import Toolbar from './components/Toolbar';
 import Login from './components/Login';
 import { getToken, clearToken } from './lib/auth';
 import './styles.css';
+import ThemeToggle from './components/ThemeToggle';
 
 type Role = 'admin' | 'user';
 
@@ -35,6 +36,8 @@ export default function App() {
   const [filterText, setFilterText] = useState('');
   const [selectedFirst, setSelectedFirst] = useState(true);
   const [groupByPrefix, setGroupByPrefix] = useState(true);
+  // Evita re-autoselección automática tras interacción del usuario
+  const didAutoSelectRef = useRef(false);
 
   // Heurística para clasificar mientras no llega realtime
   const guessType = (name: string): 'analog' | 'digital' => {
@@ -246,10 +249,19 @@ export default function App() {
   // (Opcional) autoseleccionar 2 analógicos si no hay selección
   useEffect(() => {
     if (!authed) return;
-    if (sel.length === 0 && analogList.length > 0) {
+    // Solo realizarlo una vez en el arranque de sesión
+    if (!didAutoSelectRef.current && sel.length === 0 && analogList.length > 0) {
       setSel(analogList.slice(0, 2));
+      didAutoSelectRef.current = true;
     }
   }, [authed, analogList, sel.length]);
+
+  // Al cerrar sesión, permitir que se vuelva a autoseleccionar en el próximo login
+  useEffect(() => {
+    if (!authed) {
+      didAutoSelectRef.current = false;
+    }
+  }, [authed]);
 
   // Tabla
   const rows = useMemo(() => {
@@ -276,9 +288,10 @@ export default function App() {
   // Vista restringida para rol "user": solo selección + descargas
   if (role === 'user') {
     return (
-      <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen brand-gradient brand-surface">
+        <ThemeToggle />
         {bootErr && (
-          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 text-sm">{bootErr}</div>
+          <div className="bg-yellow-100/90 text-yellow-900 px-4 py-2 text-sm">{bootErr}</div>
         )}
 
         <div className="max-w-7xl mx-auto p-4 space-y-4">
@@ -294,7 +307,7 @@ export default function App() {
                 setRealtime({});
                 setBootErr(null);
               }}
-              className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1 rounded"
+              className="text-sm brand-danger"
               title="Cerrar sesión"
             >
               Cerrar sesión
@@ -389,14 +402,15 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen brand-gradient brand-surface">
+      <ThemeToggle />
       {bootErr && (
-        <div className="bg-yellow-100 text-yellow-800 px-4 py-2 text-sm">{bootErr}</div>
+        <div className="bg-yellow-100/90 text-yellow-900 px-4 py-2 text-sm">{bootErr}</div>
       )}
 
       <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-bold">Dashboard — Groov EPIC</h1>
+          <h1 className="text-2xl font-bold">Dashboard — INGELSA</h1>
           <button
             onClick={() => {
               clearToken();
@@ -407,7 +421,7 @@ export default function App() {
               setRealtime({});
               setBootErr(null);
             }}
-            className="text-sm bg-slate-200 hover:bg-slate-300 text-slate-800 px-3 py-1 rounded"
+            className="text-sm brand-danger"
             title="Cerrar sesión"
           >
             Cerrar sesión
@@ -441,7 +455,7 @@ export default function App() {
               value={filterText}
               onChange={(e) => setFilterText(e.target.value)}
               placeholder="Nombre del sensor…"
-              className="border rounded px-2 py-1"
+              className="glass-input"
               style={{ minWidth: 260 }}
             />
           </div>
