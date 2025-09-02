@@ -1,0 +1,21 @@
+[0;1;32m●[0m groov_frontend.service - Groov Dashboard Frontend (Vite Preview)
+     Loaded: loaded (]8;;file://ingelsa-MS-7C09/etc/systemd/system/groov_frontend.service/etc/systemd/system/groov_frontend.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Wed 2025-08-27 12:34:18 -04; 5min ago
+   Main PID: 40069 (npm run preview)
+      Tasks: 37 (limit: 4378)
+     Memory: 106.0M (peak: 131.8M)
+        CPU: 2.030s
+     CGroup: /system.slice/groov_frontend.service
+             ├─[0;38;5;245m40069 "npm run preview --host"[0m
+             ├─[0;38;5;245m40087 sh -c "vite preview --host"[0m
+             ├─[0;38;5;245m40088 node /home/ingelsa/groov_dashboard/frontend/node_modules/.bin/vite preview --host[0m
+             └─[0;38;5;245m40100 /home/ingelsa/groov_dashboard/frontend/node_modules/@esbuild/linux-x64/bin/esbuild --service=0.25.9 --ping[0m
+
+ago 27 12:34:18 ingelsa-MS-7C09 systemd[1]: Started groov_frontend.service - Groov Dashboard Frontend (Vite Preview).
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40069]: > frontend@0.0.0 preview
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40069]: > vite preview --host
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40088]: You are using Node.js 18.19.1. Vite requires Node.js version 20.19+ or 22.12+. Please upgrade your Node.js version.
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40088]:   ➜  Local:   http://localhost:4173/
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40088]:   ➜  Network: http://192.168.100.250:4173/
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40088]:   ➜  Network: http://100.120.139.122:4173/
+ago 27 12:34:19 ingelsa-MS-7C09 npm[40088]:   ➜  Network: http://172.17.0.1:4173/

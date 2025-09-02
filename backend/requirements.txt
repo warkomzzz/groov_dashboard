@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pymongo
+python-dotenv
+pandas
+matplotlib
+reportlab
+python-dateutil
