@@ -87,12 +87,12 @@ export default function App() {
     };
   }, [authed]);
 
-  // --------- POLLING DE TIEMPO REAL (TODOS LOS SENSORES) ----------
-  // Estrategia:
-  //  - Siempre pedimos los seleccionados en cada tick (para gráficos).
-  //  - Los NO seleccionados se piden en lotes rotativos (BATCH) para cubrir toda la parrilla.
-  //  - Se fusiona el estado para no borrar valores de sensores no incluidos en ese tick.
-  //  - Backoff progresivo en caso de error; si es 401 se revalida sesión.
+  // --------- POLLING DE TIEMPO REAL ----------
+  // Estrategia por lotes:
+  //  - Pedimos SIEMPRE los seleccionados en cada tick (para gráficos).
+  //  - Además, pedimos un lote rotativo de los NO seleccionados para ir
+  //    completando y refrescando toda la parrilla sin saturar el backend.
+  //  - Se mantiene backoff progresivo y revalidación en 401.
   const pollAbortRef = useRef<AbortController | null>(null);
   const isPollingRef = useRef(false);
   const batchCursorRef = useRef(0);
@@ -105,7 +105,7 @@ export default function App() {
     let delay = 1200;           // ms entre ticks (se adapta con éxito/errores)
     const minDelay = 800;
     const maxDelay = 8000;
-    const BATCH = 40;           // tamaño del lote para NO seleccionados
+    const BATCH = 60;           // tamaño del lote para NO seleccionados
 
     const tick = async () => {
       if (!alive) return;
@@ -114,7 +114,6 @@ export default function App() {
         return;
       }
       isPollingRef.current = true;
-
       // Construye el lote rotativo
       const selSet = new Set(sel);
       const nonSelected = sensors.filter(s => !selSet.has(s));
@@ -131,7 +130,7 @@ export default function App() {
       if (sel.length > 0) namesToAsk.push(...sel);
       if (batch.length > 0) namesToAsk.push(...batch);
       if (namesToAsk.length === 0 && sensors.length > 0) {
-        // caso especial: no hay seleccionados ni lote (pocos sensores):
+        // caso especial: no hay seleccionados ni lote (pocos sensores)
         namesToAsk = sensors.slice(0, Math.min(BATCH, sensors.length));
       }
 
@@ -151,6 +150,13 @@ export default function App() {
         // Ajusta backoff: éxito => baja
         delay = Math.max(minDelay, Math.floor(delay * 0.85));
       } catch (e: any) {
+        // Ignorar abortos intencionales del fetch al reiniciar el tick
+        if (e?.code === 'ERR_CANCELED' || e?.name === 'CanceledError' || String(e?.message || '').toLowerCase().includes('cancel')) {
+          // no marcar degradación
+          isPollingRef.current = false;
+          if (alive) timer = setTimeout(tick, delay);
+          return;
+        }
         const status = e?.response?.status;
         if (status === 401) {
           // Revalida sesión

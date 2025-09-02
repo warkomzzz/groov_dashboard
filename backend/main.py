@@ -24,14 +24,22 @@ coll   = client[DB_NAME][COLL_NAME]
 users  = client[DB_NAME]["users"]
 
 app = FastAPI(title="Groov Dashboard API")
+
+# CORS: por defecto permitir cualquier origen (no usamos cookies),
+# o restringir vía variables de entorno ALLOWED_ORIGINS (separadas por coma)
+_allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "").strip()
+if _allowed_origins_env:
+    _origins = [o.strip() for o in _allowed_origins_env.split(",") if o.strip()]
+    _allow_credentials = os.getenv("ALLOW_CREDENTIALS", "false").lower() == "true"
+else:
+    # wildcard para todas las IPs/hosts; desactivamos credentials para que FastAPI acepte "*"
+    _origins = ["*"]
+    _allow_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://100.120.139.122:5173",
-        "http://192.168.100.250:5173",
-        "http://localhost:5173",
-    ],
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -306,9 +314,10 @@ def realtime(
     if endpoint: q["endpoint"]  = endpoint
     if device_ip:q["device_ip"] = device_ip
 
+    # Optimizamos el sort para aprovechar el índice compuesto (name asc, ts desc)
     pipeline = [
         {"$match": q},
-        {"$sort": {"ts": -1}},
+        {"$sort": {"name": 1, "ts": -1}},
         {"$group": {
             "_id": "$name",
             "ts":       {"$first": "$ts"},
