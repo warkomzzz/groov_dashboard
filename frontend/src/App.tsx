@@ -17,6 +17,7 @@ import Login from './components/Login';
 import { getToken, clearToken } from './lib/auth';
 import './styles.css';
 import ThemeToggle from './components/ThemeToggle';
+import { TARGET_TIMEZONE, tzOffsetMinutes } from './lib/dates';
 
 type Role = 'admin' | 'user';
 
@@ -36,6 +37,7 @@ export default function App() {
   const [filterText, setFilterText] = useState('');
   const [selectedFirst, setSelectedFirst] = useState(true);
   const [groupByPrefix, setGroupByPrefix] = useState(true);
+  const [tzWarning, setTzWarning] = useState<string | null>(null);
   // Evita re-autoselección automática tras interacción del usuario
   const didAutoSelectRef = useRef(false);
 
@@ -71,6 +73,41 @@ export default function App() {
     return () => {
       alive = false;
     };
+  }, []);
+
+  // Verificación opcional de desfase horario con un servicio público
+  useEffect(() => {
+    let alive = true;
+    const url = (import.meta as any).env?.VITE_TZ_CHECK_URL || `https://worldtimeapi.org/api/timezone/${TARGET_TIMEZONE}`;
+    const enabled = ((import.meta as any).env?.VITE_TZ_CHECK ?? 'true').toString().toLowerCase() !== 'false';
+    async function check() {
+      if (!enabled) return;
+      try {
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const apiOffsetMin = typeof data?.raw_offset === 'number' && typeof data?.dst_offset === 'number'
+          ? (data.raw_offset + data.dst_offset) / 60
+          : (typeof data?.utc_offset === 'string' ? (() => {
+              const m = /([+-])(\d{2}):(\d{2})/.exec(data.utc_offset);
+              if (!m) return NaN;
+              const sign = m[1] === '-' ? -1 : 1;
+              return sign * (parseInt(m[2],10)*60 + parseInt(m[3],10));
+            })() : NaN);
+        const localOffsetMin = tzOffsetMinutes(new Date(), TARGET_TIMEZONE);
+        const diff = Math.abs(apiOffsetMin - localOffsetMin);
+        if (Number.isFinite(diff) && diff > 1) {
+          if (alive) setTzWarning(`Advertencia: posible desfase horario respecto a ${TARGET_TIMEZONE}. Reinicia navegador o actualiza sistema.`);
+        } else if (alive) {
+          setTzWarning(null);
+        }
+      } catch {
+        // silencioso
+      }
+    }
+    check();
+    const id = setInterval(check, 6 * 60 * 60 * 1000); // cada 6 horas
+    return () => { alive = false; clearInterval(id); };
   }, []);
 
   // Cargar sensores al autenticarse
@@ -214,8 +251,8 @@ export default function App() {
         try {
           const data = await fetchMeasurements(
             s,
-            start ? new Date(start).toISOString() : undefined,
-            end ? new Date(end).toISOString() : undefined
+            start || undefined,
+            end || undefined
           );
           next[s] = data.map((d) => ({
             ts: d.ts,
@@ -285,6 +322,9 @@ export default function App() {
         {bootErr && (
           <div className="bg-yellow-100/90 text-yellow-900 px-4 py-2 text-sm">{bootErr}</div>
         )}
+        {tzWarning && (
+          <div className="bg-orange-100/90 text-orange-900 px-4 py-2 text-xs">{tzWarning}</div>
+        )}
 
         <div className="max-w-7xl mx-auto p-4 space-y-4">
           <div className="flex items-center justify-between gap-4">
@@ -310,20 +350,8 @@ export default function App() {
             start={start}
             end={end}
             onDateChange={(k, v) => (k === 'start' ? setStart(v) : setEnd(v))}
-            onExcel={() =>
-              exportExcel(
-                sel,
-                start ? new Date(start).toISOString() : undefined,
-                end ? new Date(end).toISOString() : undefined
-              )
-            }
-            onPDF={() =>
-              exportPDF(
-                sel,
-                start ? new Date(start).toISOString() : undefined,
-                end ? new Date(end).toISOString() : undefined
-              )
-            }
+            onExcel={() => exportExcel(sel, start || undefined, end || undefined)}
+            onPDF={() => exportPDF(sel, start || undefined, end || undefined)}
           />
 
           <div className="flex flex-wrap items-center gap-3">
@@ -399,6 +427,9 @@ export default function App() {
       {bootErr && (
         <div className="bg-yellow-100/90 text-yellow-900 px-4 py-2 text-sm">{bootErr}</div>
       )}
+      {tzWarning && (
+        <div className="bg-orange-100/90 text-orange-900 px-4 py-2 text-xs">{tzWarning}</div>
+      )}
 
       <div className="max-w-7xl mx-auto p-4 space-y-4">
         <div className="flex items-center justify-between gap-4">
@@ -424,20 +455,8 @@ export default function App() {
           start={start}
           end={end}
           onDateChange={(k, v) => (k === 'start' ? setStart(v) : setEnd(v))}
-          onExcel={() =>
-            exportExcel(
-              sel,
-              start ? new Date(start).toISOString() : undefined,
-              end ? new Date(end).toISOString() : undefined
-            )
-          }
-          onPDF={() =>
-            exportPDF(
-              sel,
-              start ? new Date(start).toISOString() : undefined,
-              end ? new Date(end).toISOString() : undefined
-            )
-          }
+          onExcel={() => exportExcel(sel, start || undefined, end || undefined)}
+          onPDF={() => exportPDF(sel, start || undefined, end || undefined)}
         />
 
         <div className="flex flex-wrap items-center gap-3">
